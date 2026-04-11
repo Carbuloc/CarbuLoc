@@ -1,6 +1,15 @@
 # CarbuLoc - Changelog
 
-# CarbuLoc - Changelog
+## v0.8.1 (2025-04-11)
+- **Amélioration** : Messages de géolocalisation plus explicites (indiquent d'activer le GPS)
+
+## v0.8.0 (2025-04-11)
+- **Feature** : Clusters "pizza" — cercles bleus divisés en secteurs (2 à 10) selon le nombre de stations regroupées
+- **Feature** : Icône de localisation personnalisée
+- **Amélioration** : Recherche unifiée — affichage "Ville, Région" pour Photon et Nominatim
+- **Amélioration** : Navigation clavier dans les résultats de recherche (flèches haut/bas)
+- **Fix** : Recherche par code postal corrigée (extraction de la ville depuis addresstype=postcode)
+- **Suppression** : Message d'instruction initial supprimé
 
 ## v0.7.13 (2025-04-02)
 - **Amélioration Mobile** : Header réorganisé sur 3 lignes

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CarbuLoc v0.8.0 — Prix carburants en France</title>
+<title>CarbuLoc v0.8.1 — Prix carburants en France</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -553,7 +553,7 @@ header {
   <!-- Logo CarbuLoc + Version -->
   <div class="logo-wrap">
     <img src="logos/LogoCarbuLoc.png" alt="CarbuLoc" class="logo-img">
-    <span class="version">v0.8.0</span>
+    <span class="version">v0.8.1</span>
   </div>
 
   <!-- Groupe gauche (desktop) : Carburants -->
@@ -1410,9 +1410,9 @@ document.getElementById('btn-locate').addEventListener('click', () => {
     },
     err => {
       console.error('[CarbuLoc] Erreur géoloc:', err.code, err.message);
-      if (err.code === 1) showToast('⚠️ Accès à la position refusé', 3000);
-      else if (err.code === 2) showToast('⚠️ Position indisponible', 3000);
-      else if (err.code === 3) showToast('⚠️ Délai dépassé', 3000);
+      if (err.code === 1) showToast('⚠️ Accès refusé. Activez le GPS et autorisez la localisation.', 4000);
+      else if (err.code === 2) showToast('⚠️ Position indisponible. Vérifiez que le GPS est activé.', 4000);
+      else if (err.code === 3) showToast('⚠️ Délai dépassé. Réessayez.', 3000);
       else showToast('⚠️ Localisation impossible', 3000);
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
