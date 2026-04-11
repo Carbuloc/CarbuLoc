@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CarbuLoc v0.8.0 — Prix carburants en France</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+:root {
+  --bg: #0e1117;
+  --surface: #161b27;
+  --surface2: #1e2535;
+  --border: #2a3347;
+  --text: #e8ecf4;
+  --text-muted: #7a8aaa;
+  --accent: #3df0a0;
+  --accent2: #3d9ef0;
+  --green: #3df0a0;
+  --yellow: #f0d03d;
+  --red: #f05a3d;
+  --rank1: #3df0a0;
+  --rank2: #7adb8c;
+  --rank3: #a8d47a;
+  --panel-w: 360px;
+  --header-h: 60px;
+  --radius: 12px;
+  --map-tiles: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+}
+
+/* Light mode */
+[data-theme="light"] {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface2: #e8ecf0;
+  --border: #d0d7e0;
+  --text: #1a202c;
+  --text-muted: #5a6a7a;
+  --accent: #10b981;
+  --accent2: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── HEADER ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  z-index: 1000; flex-shrink: 0;
+}
+/* Logo + version */
+.logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.logo-img {
+  height: 28px;
+  width: auto;
+}
+.version { 
+  position: absolute;
+  bottom: 0px;
+  left: 4px;
+  font-size: 0.4rem; 
+  color: var(--text-muted); 
+  font-family: 'DM Mono', monospace;
+}
+/* Desktop: groupe centre et droite */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-spacer { flex: 1; }
+
+.search-wrap { flex: 1; max-width: 400px; position: relative; }
+#search-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px 8px 36px;
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.875rem;
+  outline: none; transition: border-color 0.2s;
+}
+#search-input:focus { border-color: var(--accent2); }
+#search-input::placeholder { color: var(--text-muted); }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+#search-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  z-index: 9999; overflow: hidden; display: none;
+}
+.search-result-item { padding: 9px 13px; cursor: pointer; font-size: 0.85rem; color: var(--text); transition: background 0.15s; }
+.search-result-item:hover, .search-result-item.highlighted { background: var(--border); }
+
+.header-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* Fuel selector */
+.fuel-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 8px; padding: 3px; }
+.fuel-tab {
+  padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 500;
+  font-family: 'DM Mono', monospace; cursor: pointer; border: none;
+  background: transparent; color: var(--text-muted); transition: all 0.18s; white-space: nowrap;
+}
+.fuel-tab.active { background: var(--accent); color: #0e1117; }
+
+/* Radius selector */
+.radius-select {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; color: var(--text); font-size: 0.82rem; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; outline: none;
+}
+
+/* Localise btn */
+#btn-locate {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #0e1117;
+  border: none; border-radius: 8px; padding: 7px 13px;
+  font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.82rem;
+  cursor: pointer; transition: opacity 0.2s; white-space: nowrap;
+}
+#btn-locate:hover { opacity: 0.85; }
+#btn-locate .locate-icon { width: 18px; height: 18px; }
+
+/* Pizza cluster icon */
+.pizza-cluster { background: transparent !important; }
+.marker-cluster { background: transparent !important; }
+.marker-cluster div { background: transparent !important; }
+
+/* Refresh btn */
+#btn-refresh {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center;
+}
+#btn-refresh:hover { color: var(--text); border-color: var(--accent2); }
+#btn-refresh svg { width: 16px; height: 16px; }
+#btn-refresh.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Theme btn */
+#btn-theme {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center;
+}
+#btn-theme:hover { color: var(--text); border-color: var(--accent2); }
+#btn-theme svg { width: 16px; height: 16px; }
+#btn-theme .icon-moon { display: none; }
+[data-theme="light"] #btn-theme .icon-sun { display: none; }
+[data-theme="light"] #btn-theme .icon-moon { display: block; }
+
+/* Last update */
+#last-update { font-size: 0.72rem; color: var(--text-muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
+
+/* ── LAYOUT ── */
+.app-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+/* ── MAP ── */
+#map { flex: 1; height: 100%; z-index: 1; }
+
+/* ── PANEL ── */
+#panel {
+  width: var(--panel-w); height: 100%; background: var(--surface);
+  border-left: 1px solid var(--border); overflow-y: auto;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  flex-shrink: 0; display: flex; flex-direction: column;
+  z-index: 100;
+}
+#panel.hidden { transform: translateX(100%); position: absolute; right: 0; top: 0; }
+
+/* ── NAV LINKS (Maps/Waze/Plans) ── */
+.nav-links { display: flex; gap: 8px; margin-top: 10px; justify-content: space-between; }
+.nav-link {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 8px; border-radius: 10px;
+  background: var(--surface2);
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.nav-link:hover { background: var(--border); transform: translateY(-1px); }
+.nav-logo { width: 100%; max-width: 48px; height: auto; border-radius: 8px; }
+
+/* ── GOUV LINK (Header) ── */
+#gouv-link { display: flex; align-items: center; margin-left: 10px; }
+.gouv-logo { height: 32px; width: auto; border-radius: 4px; cursor: pointer; transition: transform 0.15s; }
+.gouv-logo:hover { transform: scale(1.05); }
+
+/* ── RANKING PANEL (LEFT) - OVERLAY MODE ── */
+.ranking-panel {
+  position: absolute; left: 0; top: 0;
+  width: 280px; height: 100%; background: var(--surface);
+  border-right: 1px solid var(--border); overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s;
+  display: flex; flex-direction: column;
+  z-index: 100;
+}
+.ranking-panel.hidden { transform: translateX(-100%); }
+.ranking-panel.collapsed { width: 56px; }
+.ranking-panel.collapsed .ranking-title { display: none; }
+.ranking-panel.collapsed .ranking-item-logo,
+.ranking-panel.collapsed .ranking-item-info,
+.ranking-panel.collapsed .ranking-item-price { display: none; }
+.ranking-panel.collapsed .ranking-item { padding: 6px; justify-content: center; }
+.ranking-panel.collapsed .ranking-list { padding: 4px; }
+.ranking-panel .icon-expand { display: none; }
+.ranking-panel.collapsed .icon-collapse { display: none; }
+.ranking-panel.collapsed .icon-expand { display: block; }
+.ranking-header {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.ranking-panel.collapsed .ranking-header { padding: 10px 8px; justify-content: center; }
+.ranking-title {
+  font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+}
+.ranking-toggle {
+  background: var(--surface2); border: none; border-radius: 5px; width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; transition: color 0.2s, background 0.2s;
+}
+.ranking-toggle:hover { color: var(--text); background: var(--border); }
+.ranking-list {
+  flex: 1; overflow-y: auto; padding: 8px;
+}
+.ranking-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s;
+  margin-bottom: 4px;
+}
+.ranking-item:hover { background: var(--surface2); }
+.ranking-item.selected {
+  background: var(--surface2);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.05);
+}
+.ranking-item-rank {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Mono', monospace; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;
+}
+.ranking-item-logo {
+  width: 28px; height: 28px; object-fit: contain; background: #fff; border-radius: 5px; padding: 2px; flex-shrink: 0;
+}
+.ranking-item-info { flex: 1; min-width: 0; }
+.ranking-item-name {
+  font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ranking-item-address {
+  font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ranking-item-price {
+  font-family: 'DM Mono', monospace; font-size: 0.85rem; font-weight: 600; flex-shrink: 0;
+}
+.ranking-item-rupture {
+  font-size: 0.65rem; color: #ff6666; text-transform: uppercase;
+}
+
+.panel-header {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+.panel-station-name { 
+  font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.2;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.brand-logo {
+  width: 48px; height: 48px; object-fit: contain; flex-shrink: 0;
+  background: #fff; border-radius: 8px; padding: 3px;
+}
+.station-names {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.brand-name {
+  font-weight: 700;
+}
+.enterprise-name {
+  font-size: 0.75rem; font-weight: 400; color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+}
+.rupture-badge {
+  background: #8b3030; color: #ff9999; font-size: 0.65rem; font-weight: 600;
+  padding: 2px 6px; border-radius: 4px; margin-left: auto; align-self: flex-start;
+  font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.panel-close {
+  background: var(--surface2); border: none; border-radius: 6px; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; flex-shrink: 0; transition: color 0.2s;
+}
+.panel-close:hover { color: var(--text); }
+
+.panel-address { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.panel-address p { font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; }
+.panel-gps { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.panel-gps code { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--accent2); background: var(--surface2); padding: 2px 7px; border-radius: 4px; }
+
+.panel-prices { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.panel-prices h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 10px; }
+.price-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.price-row:last-child { border-bottom: none; }
+.price-row.highlight .price-val { color: var(--accent); font-size: 1.1rem; }
+.price-label { font-size: 0.82rem; font-family: 'DM Mono', monospace; color: var(--text-muted); }
+.price-val { font-family: 'DM Mono', monospace; font-size: 0.92rem; font-weight: 500; }
+.price-val.unavail { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+.price-badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-family: 'DM Mono', monospace; }
+.badge-cheap { background: rgba(61,240,160,0.15); color: var(--green); }
+.badge-avg   { background: rgba(240,208,61,0.15); color: var(--yellow); }
+.badge-expensive { background: rgba(240,90,61,0.15); color: var(--red); }
+
+.panel-hours { padding: 14px 16px; }
+.panel-hours h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px; }
+.hours-text { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; }
+
+/* ── STATS BAR ── */
+#stats-bar {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 16px; display: flex; gap: 20px; align-items: center;
+  z-index: 500; font-size: 0.75rem; white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: left 0.3s, transform 0.3s;
+}
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stat-label { color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-value { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 0.85rem; }
+.stat-divider { width: 1px; height: 28px; background: var(--border); }
+
+/* ── TOAST ── */
+#toast {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 18px; font-size: 0.82rem; z-index: 2000; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  /* Header mobile : 2 lignes */
+  header {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  
+  /* Ligne 1 : logo + recherche + refresh */
+  .logo { font-size: 1rem; order: 1; }
+  .logo .loc { font-size: 0.7em; }
+  .logo .version { display: none; }
+  
+  .search-wrap { 
+    order: 2; 
+    flex: 1; 
+    min-width: 120px;
+    max-width: none;
+  }
+  #search-input { padding: 6px 10px 6px 32px; font-size: 0.8rem; }
+  .search-icon { left: 9px; }
+  
+  .header-controls { 
+    order: 3;
+    width: 100%; 
+    justify-content: space-between;
+    gap: 6px;
+    margin-left: 0;
+  }
+  
+  /* Fuel tabs : tous visibles mais compacts */
+  .fuel-tabs { 
+    flex: 1;
+    justify-content: center;
+    padding: 2px;
+    gap: 2px;
+  }
+  .fuel-tab { 
+    padding: 5px 6px; 
+    font-size: 0.68rem; 
+  }
+  
+  /* Radius select compact */
+  .radius-select { 
+    padding: 5px 6px; 
+    font-size: 0.75rem;
+    min-width: 55px;
+  }
+  
+  /* Bouton localiser : icône seule */
+  #btn-locate { padding: 7px 10px; }
+  #btn-locate span { display: none; }
+  
+  /* Refresh + MAJ cachés */
+  #btn-refresh { padding: 6px 8px; }
+  #last-update { display: none; }
+  
+  /* Panel drawer bas */
+  #panel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    width: 100%; height: auto; max-height: 55dvh;
+    border-left: none; border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+  }
+  #panel.hidden { transform: translateY(100%); top: auto; right: auto; }
+  
+  .panel-header { padding: 12px; }
+  .panel-station-name { font-size: 0.9rem; }
+  .panel-address { padding: 10px 12px; }
+  .panel-prices { padding: 10px 12px; }
+  .panel-hours { padding: 10px 12px; }
+  
+  /* Stats bar compact */
+  #stats-bar { 
+    bottom: 8px; left: 8px; right: 8px; 
+    transform: none; 
+    justify-content: space-around;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  .stat-divider { display: none; }
+  .stat-label { font-size: 0.55rem; }
+  .stat-value { font-size: 0.75rem; }
+  
+  /* Toast */
+  #toast { font-size: 0.75rem; padding: 8px 14px; }
+  
+  /* Fix touch mobile */
+  button, .fuel-tab, .search-result-item, #search-input, .radius-select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Ensure map fills space */
+  #map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+  }
+  
+  .app-body {
+    position: relative;
+  }
+  
+  /* Ranking panel mobile : caché par défaut, drawer bas quand actif */
+  .ranking-panel { display: none; }
+  .ranking-panel.mobile-active {
+    display: flex;
+    position: absolute; bottom: 0; left: 0; right: 0;
+    width: 100%; height: auto; max-height: 50dvh;
+    border-right: none; border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    z-index: 150;
+  }
+  .ranking-panel.mobile-active.collapsed { max-height: none; height: auto; }
+  .ranking-panel.mobile-active.collapsed .ranking-list { max-height: 100px; overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: nowrap; gap: 4px; padding: 8px; }
+  .ranking-panel.mobile-active.collapsed .ranking-item { margin-bottom: 0; flex-shrink: 0; }
+  
+  /* Mobile toggle button */
+  #mobile-panel-toggle {
+    display: flex;
+    position: absolute; bottom: 70px; right: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 50%; width: 44px; height: 44px;
+    align-items: center; justify-content: center;
+    z-index: 600; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  #mobile-panel-toggle svg { width: 20px; height: 20px; stroke: var(--text); }
+}
+
+/* ── MOBILE HEADER (3 lignes) ── */
+@media (max-width: 768px) {
+  header {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 30px 30px 30px;
+    gap: 4px 8px;
+    padding: 6px 10px;
+  }
+  /* Logo occupe lignes 1 et 2 */
+  .logo-wrap {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  .logo-img {
+    height: auto;
+    width: 150px;
+  }
+  .version {
+    bottom: 0px;
+    left: 4px;
+    font-size: 0.4rem;
+  }
+  
+  /* Ligne 1 mobile: Refresh + Heure + Thème + Gouv (à droite) */
+  .header-right {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+  
+  /* Ligne 2 mobile: Carburants (à droite) */
+  .fuel-tabs {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  
+  /* Ligne 3 mobile: Distance + Localiser + Recherche */
+  .header-center {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    justify-content: flex-start;
+  }
+  .header-center .search-wrap { flex: 1; max-width: none; }
+  
+  /* Éléments compacts */
+  #btn-theme, #gouv-link .gouv-logo { height: 20px; }
+  #btn-theme { width: 20px; padding: 0; }
+  #btn-refresh { width: 20px; height: 20px; padding: 0; }
+  #btn-refresh svg { width: 14px; height: 14px; }
+  #last-update { font-size: 0.5rem; }
+  .fuel-tab { padding: 3px 5px; font-size: 0.65rem; }
+  #search-input { padding: 4px 8px 4px 28px; font-size: 0.75rem; }
+  .search-icon { left: 8px; width: 12px; height: 12px; }
+  .radius-select { width: 50px; padding: 4px 2px; font-size: 0.7rem; }
+  #btn-locate { width: 28px; height: 28px; padding: 4px; }
+  #btn-locate .locate-icon { width: 18px; height: 18px; }
+  #btn-locate span { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <!-- Logo CarbuLoc + Version -->
+  <div class="logo-wrap">
+    <img src="logos/LogoCarbuLoc.png" alt="CarbuLoc" class="logo-img">
+    <span class="version">v0.8.0</span>
+  </div>
+
+  <!-- Groupe gauche (desktop) : Carburants -->
+  <div class="fuel-tabs" id="fuel-tabs">
+    <button class="fuel-tab active" data-fuel="gazole_prix" data-label="Gazole">Gazole</button>
+    <button class="fuel-tab" data-fuel="sp95_prix" data-label="SP95">SP95</button>
+    <button class="fuel-tab" data-fuel="sp98_prix" data-label="SP98">SP98</button>
+    <button class="fuel-tab" data-fuel="e10_prix" data-label="E10">E10</button>
+    <button class="fuel-tab" data-fuel="e85_prix" data-label="E85">E85</button>
+  </div>
+
+  <!-- Groupe centre (desktop) : Distance, Localiser, Recherche -->
+  <div class="header-center">
+    <select class="radius-select" id="radius-select">
+      <option value="3">3 km</option>
+      <option value="5" selected>5 km</option>
+      <option value="10">10 km</option>
+      <option value="20">20 km</option>
+      <option value="50">50 km</option>
+    </select>
+    <button id="btn-locate">
+      <img src="logos/localisation.png" alt="Localiser" class="locate-icon">
+      <span>Me localiser</span>
+    </button>
+    <div class="search-wrap">
+      <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="search-input" placeholder="Ville ou code postal…" autocomplete="off">
+      <div id="search-results"></div>
+    </div>
+  </div>
+
+  <!-- Groupe droite (desktop) : Refresh, Heure, Thème, Gouv -->
+  <div class="header-right">
+    <button id="btn-refresh" title="Rafraîchir les données">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+    </button>
+    <span id="last-update">—</span>
+    <button id="btn-theme" title="Changer de thème">
+      <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <a href="https://www.prix-carburants.gouv.fr/" target="_blank" id="gouv-link" title="Site officiel prix-carburants.gouv.fr"><img src="logos/LogoGouv.jpg" alt="Gouv" class="gouv-logo"></a>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- Ranking panel (left) -->
+  <aside id="ranking-panel" class="ranking-panel hidden">
+    <div class="ranking-header">
+      <span class="ranking-title">Classement</span>
+      <button class="ranking-toggle" id="ranking-toggle" title="Réduire/Agrandir">
+        <svg class="icon-collapse" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        <svg class="icon-expand" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+    <div class="ranking-list" id="ranking-list">
+      <!-- Stations will be inserted here -->
+    </div>
+  </aside>
+
+  <div id="map"></div>
+
+  <!-- Side panel -->
+  <aside id="panel" class="hidden">
+    <div class="panel-header">
+      <div class="panel-station-name" id="panel-name">Station</div>
+      <button class="panel-close" id="panel-close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="panel-address">
+      <p id="panel-address">—</p>
+      <div class="panel-gps">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <code id="panel-gps">—</code>
+      </div>
+      <div id="panel-nav-links" class="nav-links"></div>
+    </div>
+    <div class="panel-prices">
+      <h3>Prix des carburants</h3>
+      <div id="panel-price-list"></div>
+    </div>
+    <div class="panel-hours">
+      <h3>Horaires</h3>
+      <div class="hours-text" id="panel-hours">—</div>
+    </div>
+  </aside>
+
+  <!-- Mobile panel toggle button -->
+  <button id="mobile-panel-toggle" style="display:none" title="Classement / Détails">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/>
+    </svg>
+  </button>
+
+  <!-- Stats bar -->
+  <div id="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">Stations</span>
+      <span class="stat-value" id="stat-count">—</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">Min zone</span>
+      <span class="stat-value" id="stat-min" style="color:var(--green)">—</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">Moy. zone</span>
+      <span class="stat-value" id="stat-avg">—</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">Max zone</span>
+      <span class="stat-value" id="stat-max" style="color:var(--red)">—</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">Moy. nationale</span>
+      <span class="stat-value" id="stat-national">—</span>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ── CONFIG ──
+const API_BASE = 'https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records';
+const API_2AAZ = 'https://api.prix-carburants.2aaz.fr';
+const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 min
+
+let map, clusterGroup, userMarker, currentTileLayer;
+let stations = [];
+let stationNames = {}; // Cache des noms de stations
+let currentFuel = 'gazole_prix';
+let currentFuelLabel = 'Gazole';
+let currentCenter = null;
+let currentRadius = 5;
+let nationalAvg = null;
+let refreshTimer = null;
+let selectionMarker = null; // Marqueur pentagonal animé pour la station sélectionnée
+let selectedStationId = null; // ID de la station sélectionnée dans le classement
+
+// ── INIT MAP ──
+map = L.map('map', {
+  center: [46.8, 2.3],
+  zoom: 6,
+  zoomControl: true,
+  attributionControl: true,
+  maxZoom: 19
+});
+
+// Add initial dark tiles (theme toggle will switch if needed)
+const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const lightTiles = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+currentTileLayer = L.tileLayer(darkTiles, {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+// ── CLUSTER ICON (Pizza style) ──
+function createPizzaClusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  const size = 36;
+  const r = 14; // rayon du cercle
+  const cx = 18, cy = 18;
+  
+  // Nombre de secteurs : min 2, max 10
+  const sectors = Math.min(Math.max(count, 2), 10);
+  const angleStep = (2 * Math.PI) / sectors;
+  
+  // Générer les lignes de séparation
+  let lines = '';
+  for (let i = 0; i < sectors; i++) {
+    const angle = i * angleStep - Math.PI / 2; // commencer en haut
+    const x2 = cx + r * Math.cos(angle);
+    const y2 = cy + r * Math.sin(angle);
+    lines += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#0e1117" stroke-width="1.5"/>`;
+  }
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 36 36">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="#4a9eff"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#0e1117" stroke-width="2"/>
+    ${lines}
+  </svg>`;
+  
+  return L.divIcon({
+    html: svg,
+    className: 'pizza-cluster',
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2]
+  });
+}
+
+clusterGroup = L.markerClusterGroup({ 
+  maxClusterRadius: 40, 
+  disableClusteringAtZoom: 14,
+  iconCreateFunction: createPizzaClusterIcon
+});
+map.addLayer(clusterGroup);
+
+// ── MARKER SVG ──
+function makeIcon(rank, color, num) {
+  const size = rank <= 3 ? 36 : 28;
+  const inner = rank <= 3
+    ? `<text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="DM Mono,monospace" font-weight="600" font-size="13" fill="#0e1117">${num}</text>`
+    : `<circle cx="50%" cy="50%" r="5" fill="${color}"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="15" fill="${color}" opacity="${rank<=3?'1':'0.85'}"/>
+    <circle cx="18" cy="18" r="15" fill="none" stroke="#0e1117" stroke-width="2"/>
+    ${inner}
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize: [size, size], iconAnchor: [size/2, size/2]
+  });
+}
+
+function getColor(price, min, avg, max) {
+  if (price <= min * 1.005) return '#3df0a0';
+  if (price <= avg) return '#f0d03d';
+  return '#f05a3d';
+}
+
+// ── FETCH STATIONS ──
+async function fetchStations(lat, lon, radiusKm) {
+  // Utiliser within_distance pour récupérer directement les stations dans le rayon
+  // Cela inclut automatiquement les stations des départements voisins
+  const selectFields = 'id,adresse,ville,cp,geom,gazole_prix,sp95_prix,sp98_prix,e10_prix,e85_prix,gplc_prix,gazole_maj,sp95_maj,sp98_maj,e10_maj,e85_maj,gazole_rupture_type,sp95_rupture_type,sp98_rupture_type,e10_rupture_type,e85_rupture_type,horaires_automate_24_24,services_service,horaires,horaires_jour,code_departement';
+  
+  const whereClause = `within_distance(geom,geom'POINT(${lon} ${lat})',${radiusKm}km)`;
+  const params = new URLSearchParams({
+    where: whereClause,
+    limit: 100,
+    select: selectFields
+  });
+  const url = `${API_BASE}?${params}`;
+  console.log('[CarbuLoc] URL requête:', url);
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error('[CarbuLoc] Erreur body:', errBody);
+    throw new Error(`Erreur API ${res.status}: ${errBody.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  console.log('[CarbuLoc] Total dans rayon:', data.total_count, '/ retournés:', data.results?.length);
+  return data.results || [];
+}
+
+let currentDepts = [];
+
+// Détecte le(s) code(s) département autour d'un point via un appel API minimal
+async function detectDepts(lat, lon, radiusKm) {
+  const dLat = radiusKm / 111;
+  const dLon = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
+  const where = `latitude > "${Math.round((lat-dLat)*100000)}" AND latitude < "${Math.round((lat+dLat)*100000)}"`;
+  const params = new URLSearchParams({ select: 'code_departement', limit: 100, where });
+  try {
+    const res = await fetch(`${API_BASE}?${params}`);
+    const data = await res.json();
+    const depts = [...new Set((data.results || []).map(r => r.code_departement).filter(Boolean))];
+    console.log('[CarbuLoc] Départements détectés:', depts);
+    return depts.length ? depts : await detectDeptsFallback(lat, lon);
+  } catch {
+    return await detectDeptsFallback(lat, lon);
+  }
+}
+
+// Fallback : détection via Nominatim
+async function detectDeptsFallback(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const data = await res.json();
+    const postcode = data.address?.postcode;
+    if (postcode) {
+      const dept = postcode.startsWith('97') ? postcode.slice(0,3) : postcode.slice(0,2);
+      return [dept];
+    }
+  } catch {}
+  return ['56'];
+}
+
+
+
+function filterByDistance(stations, lat, lon, radiusKm) {
+  return stations.filter(s => {
+    if (!s.geom) return false;
+    return haversine(lat, lon, s.geom.lat, s.geom.lon) <= radiusKm;
+  });
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── BRAND INFO MAPPING (shortName → {logo, displayName}) ──
+const brandInfo = {
+  'total': { logo: 'total.png', name: 'Total' },
+  'totalenergies': { logo: 'total.png', name: 'TotalEnergies' },
+  'totalaccess': { logo: 'totalaccess.png', name: 'Total Access' },
+  'esso': { logo: 'esso.png', name: 'Esso' },
+  'essoexpress': { logo: 'essoexpress.png', name: 'Esso Express' },
+  'shell': { logo: 'shell.png', name: 'Shell' },
+  'bp': { logo: 'bp.png', name: 'BP' },
+  'carrefour': { logo: 'carrefour.png', name: 'Carrefour' },
+  'carrefourmarket': { logo: 'carrefourmarket.png', name: 'Carrefour Market' },
+  'carrefourexpress': { logo: 'carrefourexpress.png', name: 'Carrefour Express' },
+  'carrefourcontact': { logo: 'carrefourcontact.png', name: 'Carrefour Contact' },
+  'eleclerc': { logo: 'eleclerc.png', name: 'E.Leclerc' },
+  'leclerc': { logo: 'eleclerc.png', name: 'E.Leclerc' },
+  'intermarche': { logo: 'intermarche.png', name: 'Intermarché' },
+  'auchan': { logo: 'auchan.png', name: 'Auchan' },
+  'systemeu': { logo: 'systemeu.png', name: 'Système U' },
+  'superu': { logo: 'systemeu.png', name: 'Super U' },
+  'hyperu': { logo: 'systemeu.png', name: 'Hyper U' },
+  'uexpress': { logo: 'systemeu.png', name: 'U Express' },
+  'casino': { logo: 'casino.png', name: 'Casino' },
+  'geant': { logo: 'geant.png', name: 'Géant Casino' },
+  'geantcasino': { logo: 'geant.png', name: 'Géant Casino' },
+  'monoprix': { logo: 'monoprix.png', name: 'Monoprix' },
+  'avia': { logo: 'avia.png', name: 'Avia' },
+  'elan': { logo: 'elan.png', name: 'Elan' },
+  'elf': { logo: 'elf.png', name: 'Elf' },
+  'agip': { logo: 'agip.png', name: 'Agip' },
+  'eni': { logo: 'eni.png', name: 'Eni' },
+  'dyneff': { logo: 'dyneff.png', name: 'Dyneff' },
+  'netto': { logo: 'netto.png', name: 'Netto' },
+  'spar': { logo: 'spar.png', name: 'Spar' },
+  'cora': { logo: 'cora.png', name: 'Cora' },
+  'match': { logo: 'supermarchematch.png', name: 'Match' },
+  'supermarchematch': { logo: 'supermarchematch.png', name: 'Match' },
+  'colruyt': { logo: 'colruyt.png', name: 'Colruyt' },
+  'migros': { logo: 'migros.png', name: 'Migros' },
+  'bi1': { logo: 'bi1.png', name: 'Bi1' },
+  'atac': { logo: 'atac.png', name: 'Atac' },
+  '8ahuit': { logo: '8ahuit.png', name: '8 à Huit' },
+  'coccinelle': { logo: 'coccinelle.png', name: 'Coccinelle' },
+  'simplymarket': { logo: 'simplymarket.png', name: 'Simply Market' },
+  'vito': { logo: 'vito.png', name: 'Vito' },
+  'weldom': { logo: 'weldom.png', name: 'Weldom' },
+  'bricomarche': { logo: 'bricomarche.png', name: 'Bricomarché' },
+  'roady': { logo: 'roady.png', name: 'Roady' },
+  'fina': { logo: 'fina.png', name: 'Fina' },
+  'shopi': { logo: 'shopi.png', name: 'Shopi' },
+  'ecomarche': { logo: 'ecomarche.png', name: 'Écomarché' },
+  'maximarche': { logo: 'maximarche.png', name: 'Maximarché' },
+  'oilfrance': { logo: 'oilfrance.png', name: 'Oil France' },
+  'campus': { logo: 'campus.png', name: 'Campus' },
+  'k9': { logo: 'k9.png', name: 'K9' },
+  'bpexpress': { logo: 'bpexpress.png', name: 'BP Express' },
+  'supermarchecasino': { logo: 'supermarchecasino.png', name: 'Supermarché Casino' },
+};
+
+function getBrandInfo(shortName) {
+  if (!shortName) return null;
+  const normalized = shortName.toLowerCase().trim().replace(/[\s-]/g, '');
+  if (brandInfo[normalized]) return brandInfo[normalized];
+  // Recherche partielle
+  for (const [key, info] of Object.entries(brandInfo)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return info;
+    }
+  }
+  return null;
+}
+
+function getBrandLogo(shortName) {
+  const info = getBrandInfo(shortName);
+  return info ? 'logos/' + info.logo : 'logos/autre.png';
+}
+
+function getBrandDisplayName(shortName) {
+  const info = getBrandInfo(shortName);
+  return info ? info.name : null;
+}
+
+// Fonction pour harmoniser la casse des noms d'entreprise (Title Case)
+function toTitleCase(str) {
+  if (!str) return '';
+  return str.toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .replace(/\b(De|Du|Des|Le|La|Les|L'|D'|Et)\b/gi, m => m.toLowerCase())
+    .replace(/^./, c => c.toUpperCase()); // Première lettre toujours majuscule
+}
+
+// ── FETCH STATION INFO FROM 2AAZ API ──
+async function fetchStationInfo(stationId) {
+  if (stationNames[stationId]) return stationNames[stationId];
+  try {
+    const res = await fetch(`${API_2AAZ}/station/${stationId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    // API retourne Brand avec un B majuscule
+    const info = {
+      name: data.name || null,
+      brand: data.Brand?.name || data.Brand?.shortName || null,
+      brandShortName: data.Brand?.shortName || null,
+      brandId: data.Brand?.id || null
+    };
+    stationNames[stationId] = info;
+    return info;
+  } catch (e) {
+    console.warn('[CarbuLoc] Erreur API 2aaz pour station', stationId, e);
+    return null;
+  }
+}
+
+// Enrichit les stations avec leurs noms et marques (en parallèle, limité)
+async function enrichStationsWithNames(stations) {
+  const batchSize = 10;
+  for (let i = 0; i < stations.length; i += batchSize) {
+    const batch = stations.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (s) => {
+      if (!s.id) return;
+      const info = await fetchStationInfo(s.id);
+      if (info) {
+        s.stationName = info.name; // Nom de l'entreprise (ex: "RELAIS LORIENT PORT")
+        s.brand = info.brand;
+        s.brandShortName = info.brandShortName;
+        // Nom d'enseigne propre (ex: "Total Access") depuis le mapping
+        s.brandDisplayName = getBrandDisplayName(info.brandShortName) || info.brand;
+        s.brandLogo = getBrandLogo(info.brandShortName || info.brand);
+      }
+    }));
+  }
+  return stations;
+}
+
+// ── FETCH NATIONAL AVG ──
+async function fetchNationalAvg(fuel) {
+  try {
+    const params = new URLSearchParams({
+      select: `avg(${fuel}) as avg_price`,
+      limit: 1,
+      where: `${fuel} is not null`
+    });
+    const url = `${API_BASE}?${params}`;
+    const res = await fetch(url);
+    if (!res.ok) { console.warn('Avg nationale indisponible, status:', res.status); return; }
+    const data = await res.json();
+    if (data.results && data.results[0]) {
+      nationalAvg = parseFloat(data.results[0].avg_price);
+      document.getElementById('stat-national').textContent = nationalAvg ? nationalAvg.toFixed(3) + ' €' : '—';
+    }
+  } catch(e) { console.warn('Avg nationale indisponible', e); }
+}
+// ── RENDER MARKERS ──
+// ── RUPTURE CHECK ──
+function isInRupture(station, fuelKey) {
+  // Mapping des clés de carburant vers les clés de rupture
+  const ruptureKeyMap = {
+    'gazole_prix': 'gazole_rupture_type',
+    'sp95_prix': 'sp95_rupture_type',
+    'sp98_prix': 'sp98_rupture_type',
+    'e10_prix': 'e10_rupture_type',
+    'e85_prix': 'e85_rupture_type',
+    'gplc_prix': 'gplc_rupture_type'
+  };
+  const ruptureKey = ruptureKeyMap[fuelKey];
+  if (!ruptureKey) return false;
+  const ruptureType = station[ruptureKey];
+  // Rupture temporaire ou définitive → considéré comme en rupture
+  return ruptureType === 'temporaire' || ruptureType === 'definitive';
+}
+
+// ── RENDER MARKERS ──
+function renderMarkers(data) {
+  clusterGroup.clearLayers();
+  
+  // Filtrer les stations en rupture officielle pour le carburant sélectionné
+  const officialRupture = data.filter(s => isInRupture(s, currentFuel));
+  const notOfficialRupture = data.filter(s => !isInRupture(s, currentFuel));
+  
+  // Parmi les non-ruptures officielles, séparer celles avec prix et sans prix
+  const valid = notOfficialRupture.filter(s => s[currentFuel] != null).sort((a,b) => a[currentFuel] - b[currentFuel]);
+  const noPrix = notOfficialRupture.filter(s => s[currentFuel] == null);
+  
+  // Combiner ruptures officielles + stations sans prix = toutes les ruptures
+  const allRuptures = [...officialRupture, ...noPrix];
+
+  if (!valid.length) { updateStats([]); return; }
+
+  const prices = valid.map(s => s[currentFuel]);
+  const min = prices[0], max = prices[prices.length-1];
+  const avg = prices.reduce((a,b)=>a+b,0)/prices.length;
+
+  updateStats(prices, avg);
+  
+  // Calculer les rangs avec ex-aequo (1, 2, 3 toujours présents)
+  const uniquePrices = [...new Set(prices)].sort((a, b) => a - b);
+  const priceToRank = {};
+  uniquePrices.forEach((p, i) => priceToRank[p] = i + 1);
+  const ranks = valid.map(s => priceToRank[s[currentFuel]]);
+
+  // Toutes les stations en rupture (officielles + sans prix) → markers rouges barrés
+  allRuptures.forEach(s => {
+    if (!s.geom) return;
+    const lat = s.geom.lat, lon = s.geom.lon;
+    const icon = L.divIcon({ 
+      html: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+        <circle cx="9" cy="9" r="7" fill="#4a1a1a" stroke="#8b3030" stroke-width="1.5"/>
+        <line x1="5" y1="5" x2="13" y2="13" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/>
+      </svg>`, 
+      className: '', iconSize:[18,18], iconAnchor:[9,9] 
+    });
+    const ruptureType = s[currentFuel.replace('_prix', '_rupture_type')];
+    let tooltipText;
+    if (ruptureType === 'temporaire') tooltipText = 'Rupture temporaire';
+    else if (ruptureType === 'definitive') tooltipText = 'Rupture définitive';
+    else tooltipText = 'Rupture probable';
+    // Tooltip : nom d'enseigne (pas nom entreprise)
+    const tooltipName = s.brandDisplayName || s.brand || s.ville || 'Station';
+    const tooltipLogo = s.brandLogo || getBrandLogo(s.brandShortName || s.brand) || 'logos/autre.png';
+    const tooltipHtml = `<div class="tt-content"><img src="${tooltipLogo}" class="tt-logo" onerror="this.style.display='none'"><div><b>${tooltipName}</b><br><span style="color:#ff6666">${tooltipText}</span></div></div>`;
+    const m = L.marker([lat,lon], {icon, zIndexOffset: -1000}).bindTooltip(tooltipHtml, {className:'tt'});
+    m.stationData = s;
+    m.stationInRupture = true;
+    m.ruptureType = ruptureType || 'probable';
+    m.on('click', () => openPanel(s, null, null, null, true));
+    clusterGroup.addLayer(m);
+  });
+
+  // stations avec prix — couleurs: 1=vert, 2=intermédiaire, 3=jaune, autres=rouge
+  const rankColors = { 1: '#3df0a0', 2: '#a8d47a', 3: '#f0d03d' };
+  const defaultColor = '#f05a3d'; // rouge pour rang > 3
+  
+  valid.forEach((s, i) => {
+    if (!s.geom) return;
+    const lat = s.geom.lat, lon = s.geom.lon;
+    const rank = ranks[i];
+    const color = rankColors[rank] || defaultColor;
+    const icon = makeIcon(rank, color, rank <= 3 ? rank : null);
+    const price = s[currentFuel].toFixed(3);
+    const marker = L.marker([lat,lon], {icon, zIndexOffset: rank <= 3 ? 1000 : 0});
+    // Tooltip : nom d'enseigne (pas nom entreprise)
+    const tooltipName = s.brandDisplayName || s.brand || s.ville || 'Station';
+    const tooltipLogo = s.brandLogo || getBrandLogo(s.brandShortName || s.brand) || 'logos/autre.png';
+    const tooltipHtml = `<div class="tt-content"><img src="${tooltipLogo}" class="tt-logo" onerror="this.style.display='none'"><div><b>${tooltipName}</b><br>${currentFuelLabel}: <b>${price} €/L</b></div></div>`;
+    marker.bindTooltip(tooltipHtml, {className:'tt', direction:'top', offset:[0,-10]});
+    marker.stationData = s;
+    marker.on('click', () => openPanel(s, price, rank, avg));
+    clusterGroup.addLayer(marker);
+  });
+  
+  // Mettre à jour le panneau de classement
+  updateRanking(valid, ranks, allRuptures, avg);
+}
+
+function updateStats(prices, avg) {
+  if (!prices.length) {
+    ['stat-count','stat-min','stat-avg','stat-max'].forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  document.getElementById('stat-count').textContent = prices.length;
+  document.getElementById('stat-min').textContent  = prices[0].toFixed(3) + ' €';
+  document.getElementById('stat-avg').textContent  = avg.toFixed(3) + ' €';
+  document.getElementById('stat-max').textContent  = prices[prices.length-1].toFixed(3) + ' €';
+}
+
+// ── UPDATE RANKING PANEL ──
+function updateRanking(validStations, ranks, ruptureStations, avg) {
+  const list = document.getElementById('ranking-list');
+  const panel = document.getElementById('ranking-panel');
+  
+  if (!validStations.length && !ruptureStations.length) {
+    panel.classList.add('hidden');
+    return;
+  }
+  
+  // Afficher le panneau
+  panel.classList.remove('hidden');
+  
+  // Trier par distance du centre si ex-aequo de prix
+  const sortByDistance = (a, b) => {
+    if (!currentCenter || !a.geom || !b.geom) return 0;
+    const distA = haversine(currentCenter.lat, currentCenter.lng, a.geom.lat, a.geom.lon);
+    const distB = haversine(currentCenter.lat, currentCenter.lng, b.geom.lat, b.geom.lon);
+    return distA - distB;
+  };
+  
+  // Construire la liste : stations classées + ruptures
+  const rankColors = { 1: '#3df0a0', 2: '#a8d47a', 3: '#f0d03d' };
+  const defaultColor = '#f05a3d';
+  
+  let html = '';
+  
+  // Stations avec prix (triées par rang, puis par distance)
+  const stationsWithRanks = validStations.map((s, i) => ({ station: s, rank: ranks[i] }));
+  stationsWithRanks.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return sortByDistance(a.station, b.station);
+  });
+  
+  stationsWithRanks.forEach(({ station: s, rank }) => {
+    const color = rankColors[rank] || defaultColor;
+    const name = s.brandDisplayName || s.brand || s.ville || 'Station';
+    const logo = s.brandLogo || getBrandLogo(s.brandShortName || s.brand) || 'logos/autre.png';
+    const addr = s.ville || s.adresse || '';
+    const price = s[currentFuel].toFixed(3);
+    const selected = s.id === selectedStationId ? 'selected' : '';
+    
+    html += `<div class="ranking-item ${selected}" data-id="${s.id}" data-type="valid">
+      <div class="ranking-item-rank" style="background:${color};color:#0e1117">${rank <= 99 ? rank : '+'}</div>
+      <img src="${logo}" class="ranking-item-logo" onerror="this.src='logos/autre.png'">
+      <div class="ranking-item-info">
+        <div class="ranking-item-name">${name}</div>
+        <div class="ranking-item-address">${addr}</div>
+      </div>
+      <div class="ranking-item-price">${price} €</div>
+    </div>`;
+  });
+  
+  // Stations en rupture (triées par distance)
+  const sortedRuptures = [...ruptureStations].sort(sortByDistance);
+  sortedRuptures.forEach(s => {
+    const name = s.brandDisplayName || s.brand || s.ville || 'Station';
+    const logo = s.brandLogo || getBrandLogo(s.brandShortName || s.brand) || 'logos/autre.png';
+    const addr = s.ville || s.adresse || '';
+    const ruptureType = s[currentFuel.replace('_prix', '_rupture_type')];
+    let ruptureText = 'Rupture probable';
+    if (ruptureType === 'temporaire') ruptureText = 'Rupture temp.';
+    else if (ruptureType === 'definitive') ruptureText = 'Rupture déf.';
+    const selected = s.id === selectedStationId ? 'selected' : '';
+    
+    html += `<div class="ranking-item ${selected}" data-id="${s.id}" data-type="rupture">
+      <div class="ranking-item-rank" style="background:#4a1a1a;color:#ff6666">✕</div>
+      <img src="${logo}" class="ranking-item-logo" onerror="this.src='logos/autre.png'">
+      <div class="ranking-item-info">
+        <div class="ranking-item-name">${name}</div>
+        <div class="ranking-item-rupture">${ruptureText}</div>
+      </div>
+    </div>`;
+  });
+  
+  list.innerHTML = html;
+  
+  // Ajouter les événements de clic
+  list.querySelectorAll('.ranking-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = parseInt(item.dataset.id);
+      const isRupture = item.dataset.type === 'rupture';
+      
+      // Trouver la station
+      const station = isRupture 
+        ? ruptureStations.find(s => s.id === id)
+        : validStations.find(s => s.id === id);
+      
+      if (!station) return;
+      
+      // Mettre à jour la sélection
+      selectedStationId = id;
+      list.querySelectorAll('.ranking-item').forEach(el => el.classList.remove('selected'));
+      item.classList.add('selected');
+      
+      // Centrer la carte sur la station (en tenant compte des panneaux)
+      if (station.geom) {
+        centerMapOnStation(station.geom.lat, station.geom.lon);
+      }
+      
+      // Ouvrir le panneau de détails
+      if (isRupture) {
+        openPanel(station, null, null, null, true);
+      } else {
+        const idx = validStations.indexOf(station);
+        const rank = ranks[idx];
+        const price = station[currentFuel].toFixed(3);
+        openPanel(station, price, rank, avg);
+      }
+    });
+  });
+}
+
+// ── OPEN PANEL ──
+function openPanel(s, price, rank, avg, inRupture = false) {
+  // Afficher le marqueur de sélection (pentagone animé)
+  if (s.geom) {
+    showSelectionMarker(s.geom.lat, s.geom.lon);
+  }
+  
+  // Mettre à jour la sélection dans le classement
+  selectedStationId = s.id;
+  document.querySelectorAll('.ranking-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.id) === s.id);
+  });
+  // Scroller vers l'élément sélectionné
+  const selectedEl = document.querySelector(`.ranking-item[data-id="${s.id}"]`);
+  if (selectedEl) {
+    selectedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  
+  // Nom d'enseigne (ex: "Total Access") et nom entreprise (ex: "Relais Lorient Port")
+  const brandDisplayName = s.brandDisplayName || s.brand || 'Station';
+  const enterpriseName = s.stationName ? toTitleCase(s.stationName) : null;
+  const brandLogo = s.brandLogo || getBrandLogo(s.brandShortName || s.brand) || 'logos/autre.png';
+  
+  // Afficher le logo, nom d'enseigne, nom entreprise en petit, et badge rupture
+  const logoHtml = `<img src="${brandLogo}" alt="" class="brand-logo" onerror="this.style.display='none'">`;
+  const ruptureKey = currentFuel.replace('_prix', '_rupture_type');
+  const ruptureType = s[ruptureKey];
+  let ruptureBadgeText = '';
+  if (inRupture) {
+    if (ruptureType === 'temporaire') ruptureBadgeText = 'Rupture temp.';
+    else if (ruptureType === 'definitive') ruptureBadgeText = 'Rupture déf.';
+    else ruptureBadgeText = 'Rupture probable';
+  }
+  const ruptureBadge = ruptureBadgeText ? `<span class="rupture-badge">${ruptureBadgeText}</span>` : '';
+  const enterpriseHtml = enterpriseName && enterpriseName !== brandDisplayName ? `<span class="enterprise-name">${enterpriseName}</span>` : '';
+  document.getElementById('panel-name').innerHTML = logoHtml + `<div class="station-names"><span class="brand-name">${brandDisplayName}</span>${enterpriseHtml}</div>` + ruptureBadge;
+  
+  const addr = [s.adresse, s.cp, s.ville].filter(Boolean).join(', ');
+  document.getElementById('panel-address').textContent = addr || '—';
+  const coords = s.geom ? s.geom : null;
+  document.getElementById('panel-gps').textContent = coords ? `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}` : '—';
+  
+  // Liens navigation Maps / Waze / Plans
+  const navLinksEl = document.getElementById('panel-nav-links');
+  if (coords) {
+    const mapsUrl = `https://www.google.com/maps?q=${coords.lat},${coords.lon}`;
+    const wazeUrl = `https://waze.com/ul?ll=${coords.lat},${coords.lon}&navigate=yes`;
+    const plansUrl = `https://maps.apple.com/?ll=${coords.lat},${coords.lon}&q=Station`;
+    navLinksEl.innerHTML = `<a href="${mapsUrl}" target="_blank" class="nav-link"><img src="logos/LogoMaps.png" alt="Maps" class="nav-logo"></a><a href="${wazeUrl}" target="_blank" class="nav-link"><img src="logos/LogoWaze.png" alt="Waze" class="nav-logo"></a><a href="${plansUrl}" target="_blank" class="nav-link"><img src="logos/LogoPlans.png" alt="Plans" class="nav-logo"></a>`;
+    navLinksEl.style.display = 'flex';
+  } else {
+    navLinksEl.innerHTML = '';
+    navLinksEl.style.display = 'none';
+  }
+
+  // Prix — calculer la moyenne pour chaque carburant
+  const fuels = [
+    {key:'gazole_prix', label:'Gazole', majKey:'gazole_maj'},
+    {key:'sp95_prix',   label:'SP95',   majKey:'sp95_maj'},
+    {key:'sp98_prix',   label:'SP98',   majKey:'sp98_maj'},
+    {key:'e10_prix',    label:'E10',    majKey:'e10_maj'},
+    {key:'e85_prix',    label:'E85',    majKey:'e85_maj'},
+    {key:'gplc_prix',   label:'GPLc',   majKey:null},
+  ];
+  
+  // Calculer la moyenne de chaque carburant à partir des stations chargées
+  const fuelAverages = {};
+  fuels.forEach(f => {
+    const prices = stations.filter(st => st[f.key] != null).map(st => st[f.key]);
+    fuelAverages[f.key] = prices.length ? prices.reduce((a,b) => a+b, 0) / prices.length : null;
+  });
+
+  let html = '';
+  fuels.forEach(f => {
+    const val = s[f.key];
+    const isActive = f.key === currentFuel;
+    const fuelAvg = fuelAverages[f.key];
+    let badgeHtml = '';
+    if (val != null && fuelAvg != null) {
+      const diff = ((val - fuelAvg) / fuelAvg * 100).toFixed(1);
+      if (val <= fuelAvg * 0.99) badgeHtml = `<span class="price-badge badge-cheap">-${Math.abs(diff)}%</span>`;
+      else if (val <= fuelAvg * 1.01) badgeHtml = `<span class="price-badge badge-avg">≈ moy.</span>`;
+      else badgeHtml = `<span class="price-badge badge-expensive">+${diff}%</span>`;
+    }
+    let majHtml = '';
+    if (f.majKey && s[f.majKey]) {
+      const d = new Date(s[f.majKey]);
+      majHtml = `<span style="font-size:0.68rem;color:var(--text-muted);margin-left:6px">${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>`;
+    }
+    html += `<div class="price-row ${isActive?'highlight':''}">
+      <span class="price-label">${f.label}</span>
+      <span style="display:flex;align-items:center;gap:6px">
+        ${val != null ? `<span class="price-val">${val.toFixed(3)} €/L</span>${badgeHtml}${majHtml}` : '<span class="price-val unavail">N/D</span>'}
+      </span>
+    </div>`;
+  });
+  document.getElementById('panel-price-list').innerHTML = html;
+
+  // Horaires — utilise le champ texte déjà formaté
+  let hoursHtml = '—';
+  if (s.horaires_automate_24_24 === 'Oui') {
+    hoursHtml = '🤖 Automate 24h/24<br>';
+  }
+  if (s.horaires_jour) {
+    hoursHtml += s.horaires_jour
+      .replace('Automate-24-24, ', '')
+      .split(', ')
+      .map(line => {
+        const parts = line.split(/(?<=^\w+)\s/);
+        return parts.length >= 2
+          ? `<b>${parts[0]}</b> ${parts.slice(1).join(' ')}`
+          : `<span>${line}</span>`;
+      })
+      .join('<br>');
+  } else {
+    hoursHtml += 'Horaires non renseignés';
+  }
+  document.getElementById('panel-hours').innerHTML = hoursHtml;
+
+  document.getElementById('panel').classList.remove('hidden');
+}
+// ── LOAD DATA ──
+async function loadData() {
+  if (!currentCenter) return;
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('spinning');
+  showToast('Chargement des stations…');
+  try {
+    stations = await fetchStations(currentCenter.lat, currentCenter.lng, currentRadius);
+    renderMarkers(stations);
+    const now = new Date();
+    document.getElementById('last-update').textContent = `MAJ ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    showToast(`${stations.length} stations chargées`, 2000);
+    
+    // Enrichir les stations avec les noms (en arrière-plan)
+    enrichStationsWithNames(stations).then(() => {
+      renderMarkers(stations); // Re-render avec les noms
+      console.log('[CarbuLoc] Noms de stations chargés');
+    });
+  } catch(e) {
+    showToast('⚠️ Erreur de chargement : ' + e.message, 4000);
+    console.error(e);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+function scheduleRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(loadData, REFRESH_INTERVAL);
+}
+
+async function goTo(lat, lng, zoom) {
+  currentCenter = {lat, lng};
+  map.setView([lat, lng], zoom || 13);
+  showToast('Détection de la zone…');
+  currentDepts = await detectDepts(lat, lng, currentRadius);
+  await loadData();
+  scheduleRefresh();
+}
+
+// ── GEOLOCATION ──
+document.getElementById('btn-locate').addEventListener('click', () => {
+  if (!navigator.geolocation) { showToast('Géolocalisation non supportée'); return; }
+  showToast('Localisation en cours…');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const {latitude: lat, longitude: lng} = pos.coords;
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker([lat,lng], {radius:8, fillColor:'#3d9ef0', color:'#fff', weight:2, fillOpacity:1}).addTo(map);
+      userMarker.bindTooltip('Vous êtes ici').openTooltip();
+      goTo(lat, lng, 13);
+    },
+    err => {
+      console.error('[CarbuLoc] Erreur géoloc:', err.code, err.message);
+      if (err.code === 1) showToast('⚠️ Accès à la position refusé', 3000);
+      else if (err.code === 2) showToast('⚠️ Position indisponible', 3000);
+      else if (err.code === 3) showToast('⚠️ Délai dépassé', 3000);
+      else showToast('⚠️ Localisation impossible', 3000);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+});
+
+// ── SEARCH ──
+const PHOTON = 'https://photon.komoot.io/api';
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('search-results').style.display = 'none'; return; }
+  // Code postal → Nominatim, sinon → Photon (meilleur pour autocomplétion)
+  const isPostal = /^\d{5}$/.test(q);
+  searchTimer = setTimeout(() => isPostal ? searchByPostalCode(q) : searchByName(q), 250);
+});
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('search-results').style.display = 'none';
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const highlighted = document.querySelector('.search-result-item.highlighted');
+    const firstResult = highlighted || document.querySelector('.search-result-item');
+    if (firstResult) firstResult.click();
+  }
+  // Navigation dans la liste avec flèches
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = document.querySelectorAll('.search-result-item');
+    if (!items.length) return;
+    const current = document.querySelector('.search-result-item.highlighted');
+    let idx = current ? Array.from(items).indexOf(current) : -1;
+    if (current) current.classList.remove('highlighted');
+    if (e.key === 'ArrowDown') idx = (idx + 1) % items.length;
+    else idx = idx <= 0 ? items.length - 1 : idx - 1;
+    items[idx].classList.add('highlighted');
+    items[idx].scrollIntoView({ block: 'nearest' });
+  }
+});
+
+// Photon API pour autocomplétion par nom de ville
+async function searchByName(q) {
+  const box = document.getElementById('search-results');
+  try {
+    const url = `${PHOTON}?q=${encodeURIComponent(q)}&limit=10&lang=fr&lat=46.5&lon=2.5`;
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (!data.features || !data.features.length) { box.style.display = 'none'; return; }
+    
+    // Filtrer : France + villes uniquement
+    let results = data.features.filter(f => {
+      const p = f.properties;
+      const country = (p.country || '').toLowerCase();
+      const type = p.osm_value || p.type || '';
+      return country.includes('france') && ['city', 'town', 'village', 'municipality'].includes(type);
+    });
+    
+    // Priorité aux grandes villes
+    const typePriority = { city: 1, town: 2, village: 3, municipality: 4 };
+    results.sort((a, b) => (typePriority[a.properties.osm_value] || 9) - (typePriority[b.properties.osm_value] || 9));
+    
+    // Dédupliquer par nom uniquement (garder le premier = meilleur type)
+    const seen = new Set();
+    results = results.filter(r => {
+      const name = (r.properties.name || '').toLowerCase();
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    }).slice(0, 5);
+    
+    if (!results.length) { box.style.display = 'none'; return; }
+    
+    displayResults(box, results.map(r => {
+      const p = r.properties;
+      const [lon, lat] = r.geometry.coordinates;
+      // Affichage unifié : Ville, Région (sans département)
+      const parts = [p.name || ''];
+      if (p.state) parts.push(p.state);
+      return { lat, lon, display: parts.filter(Boolean).join(', ') };
+    }));
+  } catch(e) { console.warn('Photon error', e); box.style.display = 'none'; }
+}
+
+// Nominatim API pour recherche par code postal
+async function searchByPostalCode(cp) {
+  const box = document.getElementById('search-results');
+  try {
+    const url = `${NOMINATIM}?postalcode=${cp}&country=France&format=json&limit=5&addressdetails=1`;
+    const res = await fetch(url, {headers: {'Accept-Language':'fr'}});
+    let results = await res.json();
+    
+    if (!results.length) { box.style.display = 'none'; return; }
+    
+    // Extraire les villes depuis les résultats (même si addresstype=postcode)
+    const cities = [];
+    const seen = new Set();
+    for (const r of results) {
+      const a = r.address || {};
+      const city = a.city || a.town || a.village || a.municipality || '';
+      if (!city || seen.has(city.toLowerCase())) continue;
+      seen.add(city.toLowerCase());
+      const state = a.state || '';
+      // Affichage unifié avec Photon : Ville, Région (sans département)
+      const parts = [city];
+      if (state) parts.push(state);
+      cities.push({ lat: r.lat, lon: r.lon, display: parts.join(', ') });
+    }
+    
+    if (!cities.length) { box.style.display = 'none'; return; }
+    
+    displayResults(box, cities.slice(0, 5));
+  } catch(e) { console.warn('Nominatim error', e); box.style.display = 'none'; }
+}
+
+// Affiche les résultats dans la liste
+function displayResults(box, items) {
+  box.innerHTML = items.map(r => 
+    `<div class="search-result-item" data-lat="${r.lat}" data-lon="${r.lon}">${r.display}</div>`
+  ).join('');
+  box.style.display = 'block';
+  box.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('click', () => {
+      box.style.display = 'none';
+      document.getElementById('search-input').value = el.textContent;
+      goTo(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon), 13);
+    });
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) document.getElementById('search-results').style.display='none';
+});
+
+// ── FUEL TABS ──
+document.getElementById('fuel-tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.fuel-tab');
+  if (!tab) return;
+  document.querySelectorAll('.fuel-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  currentFuel = tab.dataset.fuel;
+  currentFuelLabel = tab.dataset.label;
+  fetchNationalAvg(currentFuel);
+  renderMarkers(stations);
+  document.getElementById('panel').classList.add('hidden');
+});
+
+// ── RADIUS ──
+document.getElementById('radius-select').addEventListener('change', async e => {
+  currentRadius = parseInt(e.target.value);
+  if (currentCenter) {
+    currentDepts = await detectDepts(currentCenter.lat, currentCenter.lng, currentRadius);
+    loadData();
+  }
+});
+
+// ── REFRESH ──
+document.getElementById('btn-refresh').addEventListener('click', loadData);
+
+// ── PANEL CLOSE ──
+document.getElementById('panel-close').addEventListener('click', () => {
+  document.getElementById('panel').classList.add('hidden');
+  hideSelectionMarker();
+  selectedStationId = null;
+  document.querySelectorAll('.ranking-item.selected').forEach(el => el.classList.remove('selected'));
+});
+map.on('click', () => {
+  document.getElementById('panel').classList.add('hidden');
+  hideSelectionMarker();
+  selectedStationId = null;
+  document.querySelectorAll('.ranking-item.selected').forEach(el => el.classList.remove('selected'));
+});
+
+// ── RANKING PANEL TOGGLE ──
+document.getElementById('ranking-toggle').addEventListener('click', () => {
+  document.getElementById('ranking-panel').classList.toggle('collapsed');
+});
+
+// ── MOBILE PANEL TOGGLE ──
+const mobileToggle = document.getElementById('mobile-panel-toggle');
+let mobileShowRanking = false;
+
+function updateMobileToggle() {
+  const isMobile = window.innerWidth <= 768;
+  const rankingPanel = document.getElementById('ranking-panel');
+  const detailPanel = document.getElementById('panel');
+  
+  if (isMobile) {
+    mobileToggle.style.display = 'flex';
+    // Sur mobile, le classement est dans mobile-active, pas dans la mise en page normale
+    if (!rankingPanel.classList.contains('hidden')) {
+      rankingPanel.classList.remove('hidden');
+      if (mobileShowRanking) {
+        rankingPanel.classList.add('mobile-active');
+      } else {
+        rankingPanel.classList.remove('mobile-active');
+      }
+    }
+  } else {
+    mobileToggle.style.display = 'none';
+    rankingPanel.classList.remove('mobile-active');
+  }
+}
+
+mobileToggle.addEventListener('click', () => {
+  const rankingPanel = document.getElementById('ranking-panel');
+  const detailPanel = document.getElementById('panel');
+  
+  mobileShowRanking = !mobileShowRanking;
+  
+  if (mobileShowRanking) {
+    detailPanel.classList.add('hidden');
+    rankingPanel.classList.add('mobile-active');
+  } else {
+    rankingPanel.classList.remove('mobile-active');
+  }
+});
+
+window.addEventListener('resize', updateMobileToggle);
+updateMobileToggle();
+
+// ── CENTER MAP BETWEEN PANELS ──
+function centerMapOnStation(lat, lon) {
+  const isMobile = window.innerWidth <= 768;
+  const zoom = Math.max(map.getZoom(), 14);
+  
+  if (isMobile) {
+    map.setView([lat, lon], zoom);
+    return;
+  }
+  
+  // Sur desktop, le panneau de droite (320px) va s'ouvrir après le clic
+  // On décale vers la gauche pour compenser
+  const rightPanelWidth = 320;
+  
+  // Centrer d'abord normalement (sans animation)
+  map.setView([lat, lon], zoom, { animate: false });
+  
+  // Décaler vers la gauche pour que le point soit centré entre gauche et panneau droit
+  // Le panneau gauche est en overlay donc ne compte pas
+  const offsetX = rightPanelWidth / 2;
+  const point = map.latLngToContainerPoint([lat, lon]);
+  const newPoint = L.point(point.x + offsetX, point.y);
+  const newLatLng = map.containerPointToLatLng(newPoint);
+  map.setView(newLatLng, zoom, { animate: true });
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg, duration) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  if (duration) toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ── TOOLTIP STYLE ──
+const style = document.createElement('style');
+style.textContent = `.tt { background: #1e2535; border: 1px solid #2a3347; color: #e8ecf4; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; padding: 6px 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); } .leaflet-tooltip-top.tt::before { border-top-color: #2a3347; } .tt-content { display: flex; align-items: center; gap: 8px; } .tt-logo { width: 28px; height: 28px; object-fit: contain; background: #fff; border-radius: 4px; padding: 2px; flex-shrink: 0; } @keyframes pentaRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes pentaPulse { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.12); opacity: 1; } } .selection-penta { animation: pentaRotate 10s linear infinite; } .selection-penta-inner { animation: pentaPulse 2.5s ease-in-out infinite; }`;
+document.head.appendChild(style);
+
+// ── SELECTION MARKER ──
+function showSelectionMarker(lat, lon) {
+  // Pentagone régulier (5 côtés) centré sur 32,32 avec rayon 28 (plus grand)
+  // Angles: -90°, -18°, 54°, 126°, 198° (pointe vers le haut)
+  // x = 32 + 28*cos(angle), y = 32 + 28*sin(angle)
+  const pentagonPoints = "32,4 58.6,24.4 48.5,56 15.5,56 5.4,24.4";
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const strokeColor = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.95)';
+  
+  const pentaSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" class="selection-penta">
+    <g class="selection-penta-inner" transform-origin="32 32">
+      <polygon points="${pentagonPoints}" 
+        fill="none" stroke="${strokeColor}" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="${pentagonPoints}" 
+        fill="none" stroke="#3df0a0" stroke-width="2.5" stroke-linejoin="round"
+        filter="drop-shadow(0 0 8px rgba(61,240,160,0.7))"/>
+    </g>
+  </svg>`;
+  
+  if (selectionMarker) {
+    map.removeLayer(selectionMarker);
+    selectionMarker = null;
+  }
+  
+  const icon = L.divIcon({
+    html: pentaSvg,
+    className: '',
+    iconSize: [64, 64],
+    iconAnchor: [32, 32]
+  });
+  selectionMarker = L.marker([lat, lon], { icon, interactive: false, zIndexOffset: 2000 });
+  selectionMarker.addTo(map);
+}
+
+function hideSelectionMarker() {
+  if (selectionMarker) {
+    map.removeLayer(selectionMarker);
+    selectionMarker = null;
+  }
+}
+
+// ── INIT ──
+fetchNationalAvg(currentFuel);
+
+// ── FIX LEAFLET SIZE ON LOAD ──
+// Force Leaflet to recalculate map size after page fully loads
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    map.invalidateSize();
+    // Fix mobile touch
+    if (L.Browser.mobile) {
+      map.tap && map.tap.enable();
+    }
+  }, 100);
+});
+window.addEventListener('resize', () => map.invalidateSize());
+
+// ── FIX MOBILE TOUCH DELAY ──
+document.addEventListener('DOMContentLoaded', () => {
+  // Disable 300ms tap delay on mobile
+  const allButtons = document.querySelectorAll('button, .fuel-tab, .search-result-item');
+  allButtons.forEach(btn => {
+    btn.style.touchAction = 'manipulation';
+  });
+});
+
+// ── THEME TOGGLE ──
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('carbulocTheme', theme);
+  
+  // Change map tiles
+  if (currentTileLayer) map.removeLayer(currentTileLayer);
+  currentTileLayer = L.tileLayer(theme === 'light' ? lightTiles : darkTiles, {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+}
+
+document.getElementById('btn-theme').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  setTheme(current === 'light' ? 'dark' : 'light');
+});
+
+// Load saved theme
+const savedTheme = localStorage.getItem('carbulocTheme') || 'dark';
+if (savedTheme === 'light') setTheme('light');
+</script>
+</body>
+</html>

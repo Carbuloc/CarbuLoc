@@ -1,0 +1,11 @@
+# Fichiers privés / mémos
+TODO.md
+NOTES_CLAUDE.md
+
+# Scripts locaux
+*.bat
+*.py
+
+# Fichiers système
+.DS_Store
+Thumbs.db

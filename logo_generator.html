@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { margin: 50px; background: #0e1117; }
+    .logo-container {
+      display: inline-block;
+      background: transparent;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+    .carbu {
+      color: #10b981;
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .loc {
+      color: #5a6a7a;
+      font-size: 32px;
+      font-weight: 400;
+      margin-top: -8px;
+      margin-left: 50px;
+    }
+    #download-link { display: none; }
+  </style>
+</head>
+<body>
+  <div class="logo-container" id="logo">
+    <div class="logo">
+      <span class="carbu">Carbu</span>
+      <span class="loc">Loc</span>
+    </div>
+  </div>
+  <a id="download-link"></a>
+  <p id="status" style="color: white; font-family: sans-serif;">Génération du PNG en cours...</p>
+  <script>
+    setTimeout(() => {
+      html2canvas(document.getElementById('logo'), {
+        backgroundColor: null,
+        scale: 2
+      }).then(canvas => {
+        const link = document.getElementById('download-link');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'LogoCarbuLoc.png';
+        link.click();
+        document.getElementById('status').textContent = 'PNG téléchargé ! Vous pouvez fermer cette page.';
+      });
+    }, 1000);
+  </script>
+</body>
+</html>
