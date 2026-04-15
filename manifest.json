@@ -1,0 +1,29 @@
+{
+  "name": "CarbuLoc",
+  "short_name": "CarbuLoc",
+  "description": "Prix des carburants en France - Trouvez les stations les moins chères",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1f2e",
+  "theme_color": "#3df0a0",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logos/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logos/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logos/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

@@ -2,8 +2,20 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CarbuLoc v0.8.1 — Prix carburants en France</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#3df0a0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CarbuLoc v0.8.23 — Prix carburants en France</title>
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="logos/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="logos/icon-192.png">
+<!-- GoatCounter analytics (no cookies) -->
+<script data-goatcounter="https://carbuloc.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -68,9 +80,9 @@ header {
 }
 .version { 
   position: absolute;
-  bottom: 0px;
+  bottom: -4px;
   left: 4px;
-  font-size: 0.4rem; 
+  font-size: 0.65rem; 
   color: var(--text-muted); 
   font-family: 'DM Mono', monospace;
 }
@@ -164,6 +176,50 @@ header {
 [data-theme="light"] #btn-theme .icon-sun { display: none; }
 [data-theme="light"] #btn-theme .icon-moon { display: block; }
 
+/* Info btn */
+#btn-info {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+  font-family: 'Times New Roman', Georgia, serif; font-weight: 700; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+}
+#btn-info:hover { color: var(--text); border-color: var(--accent2); }
+
+/* Info modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7); z-index: 9999;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal-content {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; max-width: 450px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--text); }
+.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+.modal-close:hover { color: var(--text); }
+.modal-close svg { width: 20px; height: 20px; }
+.modal-section { margin-bottom: 16px; }
+.modal-section-title { font-weight: 600; color: var(--accent); margin-bottom: 8px; font-size: 0.9rem; }
+.modal-text { color: var(--text-muted); font-size: 0.85rem; line-height: 2; }
+.modal-text ul { margin: 8px 0; padding-left: 20px; }
+.modal-text li { margin-bottom: 6px; line-height: 2; }
+.modal-text li img.modal-icon { height: 1.4em; width: auto; vertical-align: middle; margin-right: 2px; }
+/* Icônes thématiques dans la modale */
+.modal-icon.theme-icon { display: inline; vertical-align: middle; margin-right: 2px; }
+.modal-icon.theme-icon img { height: 2em; width: auto; vertical-align: middle; }
+.modal-icon.theme-icon .icon-dark { display: inline; }
+.modal-icon.theme-icon .icon-light { display: none; }
+[data-theme="light"] .modal-icon.theme-icon .icon-dark { display: none; }
+[data-theme="light"] .modal-icon.theme-icon .icon-light { display: inline; }
+.modal-footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.modal-footer a { color: var(--accent); text-decoration: none; }
+.modal-footer a:hover { text-decoration: underline; }
+.modal-credits { font-size: 0.8rem; color: var(--text-muted); margin-top: 12px; }
+
 /* Last update */
 #last-update { font-size: 0.72rem; color: var(--text-muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
 
@@ -217,9 +273,11 @@ header {
 .ranking-panel.collapsed .ranking-item-price { display: none; }
 .ranking-panel.collapsed .ranking-item { padding: 6px; justify-content: center; }
 .ranking-panel.collapsed .ranking-list { padding: 4px; }
+/* Desktop: icônes horizontales (gauche/droite) */
+.ranking-panel .icon-vertical { display: none; }
 .ranking-panel .icon-expand { display: none; }
 .ranking-panel.collapsed .icon-collapse { display: none; }
-.ranking-panel.collapsed .icon-expand { display: block; }
+.ranking-panel.collapsed .icon-expand.icon-horizontal { display: block; }
 .ranking-header {
   padding: 12px 14px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
@@ -408,12 +466,14 @@ header {
   #btn-refresh { padding: 6px 8px; }
   #last-update { display: none; }
   
-  /* Panel drawer bas */
+  /* Panel drawer bas - couvre toute la carte */
   #panel {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    width: 100%; height: auto; max-height: 55dvh;
-    border-left: none; border-top: 1px solid var(--border);
-    border-radius: 16px 16px 0 0;
+    position: absolute; bottom: 0; left: 0; right: 0; top: 0;
+    width: 100%; height: 100%; max-height: none;
+    border-left: none; border-top: none;
+    border-radius: 0;
+    padding-bottom: 50px; /* Espace pour stats-bar */
+    overflow-y: auto;
   }
   #panel.hidden { transform: translateY(100%); top: auto; right: auto; }
   
@@ -423,13 +483,14 @@ header {
   .panel-prices { padding: 10px 12px; }
   .panel-hours { padding: 10px 12px; }
   
-  /* Stats bar compact */
+  /* Stats bar compact - ancrée en bas */
   #stats-bar { 
-    bottom: 8px; left: 8px; right: 8px; 
+    bottom: 0; left: 0; right: 0; 
     transform: none; 
     justify-content: space-around;
     padding: 6px 10px;
     gap: 8px;
+    border-radius: 0;
   }
   .stat-divider { display: none; }
   .stat-label { font-size: 0.55rem; }
@@ -454,23 +515,37 @@ header {
     z-index: 1;
   }
   
+  /* Cacher les boutons zoom +/- en mobile */
+  .leaflet-control-zoom { display: none; }
+  
   .app-body {
     position: relative;
   }
   
-  /* Ranking panel mobile : caché par défaut, drawer bas quand actif */
+  /* Ranking panel mobile : caché par défaut, couvre toute la carte quand actif */
   .ranking-panel { display: none; }
   .ranking-panel.mobile-active {
     display: flex;
-    position: absolute; bottom: 0; left: 0; right: 0;
-    width: 100%; height: auto; max-height: 50dvh;
-    border-right: none; border-top: 1px solid var(--border);
-    border-radius: 16px 16px 0 0;
+    position: absolute; bottom: 0; left: 0; right: 0; top: 0;
+    width: 100%; height: 100%; max-height: none;
+    border-right: none; border-top: none;
+    border-radius: 0;
     z-index: 150;
+    padding-bottom: 50px; /* Espace pour stats-bar */
   }
-  .ranking-panel.mobile-active.collapsed { max-height: none; height: auto; }
+  .ranking-panel.mobile-active .ranking-list {
+    overflow-y: auto;
+  }
+  .ranking-panel.mobile-active.collapsed { max-height: none; height: auto; top: auto; }
   .ranking-panel.mobile-active.collapsed .ranking-list { max-height: 100px; overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: nowrap; gap: 4px; padding: 8px; }
   .ranking-panel.mobile-active.collapsed .ranking-item { margin-bottom: 0; flex-shrink: 0; }
+  
+  /* Mobile: icônes verticales (bas/haut) */
+  .ranking-panel .icon-horizontal { display: none !important; }
+  .ranking-panel .icon-collapse.icon-vertical { display: block; }
+  .ranking-panel .icon-expand.icon-vertical { display: none; }
+  .ranking-panel.collapsed .icon-collapse.icon-vertical { display: none; }
+  .ranking-panel.collapsed .icon-expand.icon-vertical { display: block; }
   
   /* Mobile toggle button */
   #mobile-panel-toggle {
@@ -490,7 +565,7 @@ header {
   header {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-rows: 30px 30px 30px;
+    grid-template-rows: 26px 26px 26px;
     gap: 4px 8px;
     padding: 6px 10px;
   }
@@ -500,13 +575,14 @@ header {
     grid-row: 1 / 3;
   }
   .logo-img {
-    height: auto;
+    height: 44px;
     width: 150px;
+    object-fit: fill;
   }
   .version {
     bottom: 0px;
     left: 4px;
-    font-size: 0.4rem;
+    font-size: 0.55rem;
   }
   
   /* Ligne 1 mobile: Refresh + Heure + Thème + Gouv (à droite) */
@@ -532,12 +608,13 @@ header {
   .header-center .search-wrap { flex: 1; max-width: none; }
   
   /* Éléments compacts */
-  #btn-theme, #gouv-link .gouv-logo { height: 20px; }
-  #btn-theme { width: 20px; padding: 0; }
-  #btn-refresh { width: 20px; height: 20px; padding: 0; }
+  #btn-theme, #gouv-link .gouv-logo { height: 26px; }
+  #btn-theme { width: 26px; padding: 0; display: flex; justify-content: center; align-items: center; border-radius: 6px; }
+  #btn-info { width: 26px; height: 26px; padding: 0; font-size: 0.9rem; border-radius: 6px; }
+  #btn-refresh { width: 26px; height: 26px; padding: 0; display: flex; justify-content: center; align-items: center; border-radius: 6px; }
   #btn-refresh svg { width: 14px; height: 14px; }
   #last-update { font-size: 0.5rem; }
-  .fuel-tab { padding: 3px 5px; font-size: 0.65rem; }
+  .fuel-tab { padding: 5px 6px; font-size: 0.7rem; }
   #search-input { padding: 4px 8px 4px 28px; font-size: 0.75rem; }
   .search-icon { left: 8px; width: 12px; height: 12px; }
   .radius-select { width: 50px; padding: 4px 2px; font-size: 0.7rem; }
@@ -545,15 +622,56 @@ header {
   #btn-locate .locate-icon { width: 18px; height: 18px; }
   #btn-locate span { display: none; }
 }
+
+/* Overlay pour mode paysage sur mobile */
+#landscape-overlay { display: none; }
+@media (max-width: 900px) and (orientation: landscape) {
+  #landscape-overlay {
+    display: flex;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    z-index: 99999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+  }
+  #landscape-overlay svg {
+    width: 60px; height: 60px;
+    stroke: var(--accent);
+    margin-bottom: 20px;
+    animation: rotate-phone 1.5s ease-in-out infinite;
+  }
+  #landscape-overlay p {
+    color: var(--text);
+    font-size: 1.1rem;
+    font-family: 'Syne', sans-serif;
+  }
+  @keyframes rotate-phone {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+  }
+}
 </style>
 </head>
 <body>
 
+<!-- Overlay mode paysage -->
+<div id="landscape-overlay">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="5" y="2" width="14" height="20" rx="2"/>
+    <line x1="12" y1="18" x2="12" y2="18.01" stroke-width="2"/>
+  </svg>
+  <p>Tournez votre téléphone<br>en mode portrait</p>
+</div>
+
 <header>
   <!-- Logo CarbuLoc + Version -->
   <div class="logo-wrap">
-    <img src="logos/LogoCarbuLoc.png" alt="CarbuLoc" class="logo-img">
-    <span class="version">v0.8.1</span>
+    <img src="logos/LogoCarbuLoc_v2.png" alt="CarbuLoc" class="logo-img">
+    <span class="version">v0.8.23</span>
   </div>
 
   <!-- Groupe gauche (desktop) : Carburants -->
@@ -595,9 +713,85 @@ header {
       <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
       <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
+    <button id="btn-info" title="Informations">i</button>
     <a href="https://www.prix-carburants.gouv.fr/" target="_blank" id="gouv-link" title="Site officiel prix-carburants.gouv.fr"><img src="logos/LogoGouv.jpg" alt="Gouv" class="gouv-logo"></a>
   </div>
 </header>
+
+<!-- Info Modal -->
+<div class="modal-overlay" id="info-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="modal-title">CarbuLoc</span>
+      <button class="modal-close" id="modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">🔍 Comment rechercher des stations</div>
+      <div class="modal-text">
+        <ul>
+          <li><b>Sélecteur de carburant</b> — Choisissez le type de carburant (Gazole, SP95, SP98, E10, E85)</li>
+          <li><b>Rayon</b> — Ajustez la zone de recherche (5 à 50 km)</li>
+          <li><span class="modal-icon theme-icon"><img src="logos/is_Localisation.png" class="icon-dark" alt=""><img src="logos/ic_Localisation.png" class="icon-light" alt=""></span> <b>(Me localiser)</b> — Affiche les stations autour de votre position</li>
+          <li><b>Barre de recherche</b> — Tapez une ville ou un code postal</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">🗺️ Sur la carte</div>
+      <div class="modal-text">
+        <ul>
+          <li><b>Marqueurs de vert à jaune</b> — Prix les plus bas (top 3 numérotés)</li>
+          <li><b>Marqueurs rouges</b> — Prix élevés</li>
+          <li><b>Points rouges barrés</b> — Rupture de stock</li>
+          <li><b>Cercles bleus</b> — Groupes de stations (cliquez pour zoomer)</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">📋 Panneau de classement</div>
+      <div class="modal-text">
+        À gauche de l'écran (ou en bas sur mobile), la liste des stations triées par prix. Cliquez sur une station pour la sélectionner sur la carte et afficher ses détails.
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">📄 Panneau de détails</div>
+      <div class="modal-text">
+        À droite de l'écran (ou en bas sur mobile), les informations de la station sélectionnée : nom, adresse, prix de tous les carburants, horaires, et liens vers Maps/Waze/Plans.
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">⚙️ Autres boutons</div>
+      <div class="modal-text">
+        <ul>
+          <li><span class="modal-icon theme-icon"><img src="logos/is_Màj.png" class="icon-dark" alt=""><img src="logos/ic_Màj.png" class="icon-light" alt=""></span> <b>Rafraîchir</b> — Recharge les données (automatique toutes les 10 minutes)</li>
+          <li><span class="modal-icon theme-icon"><img src="logos/is_Thème.png" class="icon-dark" alt=""><img src="logos/ic_Thème.png" class="icon-light" alt=""></span> <b>Thème</b> — Basculer entre le mode sombre et clair</li>
+          <li><img src="logos/LogoGouv.jpg" alt="" class="modal-icon"> <b>Gouv</b> — Accéder au site officiel prix-carburants.gouv.fr</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="modal-section">
+      <div class="modal-section-title">📊 Données</div>
+      <div class="modal-text">
+        Les prix proviennent de l'API officielle du Ministère de l'Économie. Ils sont mis à jour par les stations elles-mêmes. L'application rafraîchit les données toutes les 10 minutes.
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <a href="https://github.com/Carbuloc/CarbuLoc" target="_blank">📂 Voir le projet sur GitHub</a>
+      <div class="modal-credits">
+        Créé à l'aide de <a href="https://claude.ai" target="_blank">Claude.ai</a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="app-body">
   <!-- Ranking panel (left) -->
@@ -605,8 +799,10 @@ header {
     <div class="ranking-header">
       <span class="ranking-title">Classement</span>
       <button class="ranking-toggle" id="ranking-toggle" title="Réduire/Agrandir">
-        <svg class="icon-collapse" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-        <svg class="icon-expand" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        <svg class="icon-collapse icon-horizontal" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        <svg class="icon-expand icon-horizontal" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        <svg class="icon-collapse icon-vertical" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        <svg class="icon-expand icon-vertical" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 15l6-6 6 6"/></svg>
       </button>
     </div>
     <div class="ranking-list" id="ranking-list">
@@ -1231,6 +1427,12 @@ function updateRanking(validStations, ranks, ruptureStations, avg) {
         const price = station[currentFuel].toFixed(3);
         openPanel(station, price, rank, avg);
       }
+      
+      // Fermer le ranking-panel en mobile pour afficher les détails
+      if (window.innerWidth <= 768) {
+        const rankingPanel = document.getElementById('ranking-panel');
+        rankingPanel.classList.remove('mobile-active');
+      }
     });
   });
 }
@@ -1437,7 +1639,10 @@ document.getElementById('search-input').addEventListener('keydown', e => {
     e.preventDefault();
     const highlighted = document.querySelector('.search-result-item.highlighted');
     const firstResult = highlighted || document.querySelector('.search-result-item');
-    if (firstResult) firstResult.click();
+    if (firstResult) {
+      firstResult.click();
+      document.getElementById('search-input').blur(); // Fermer le clavier mobile
+    }
   }
   // Navigation dans la liste avec flèches
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -1539,6 +1744,7 @@ function displayResults(box, items) {
     el.addEventListener('click', () => {
       box.style.display = 'none';
       document.getElementById('search-input').value = el.textContent;
+      document.getElementById('search-input').blur(); // Fermer le clavier mobile
       goTo(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon), 13);
     });
   });
@@ -1741,6 +1947,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ── RESET ZOOM ON ORIENTATION CHANGE ──
+window.addEventListener('orientationchange', () => {
+  // Attendre que l'orientation soit effectivement changée
+  setTimeout(() => {
+    // Réinitialiser le zoom à 100% dans les deux orientations
+    const viewport = document.querySelector('meta[name="viewport"]');
+    viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+  }, 100);
+});
+
 // ── THEME TOGGLE ──
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -1762,6 +1978,19 @@ document.getElementById('btn-theme').addEventListener('click', () => {
 // Load saved theme
 const savedTheme = localStorage.getItem('carbulocTheme') || 'dark';
 if (savedTheme === 'light') setTheme('light');
+
+// ── INFO MODAL ──
+document.getElementById('btn-info').addEventListener('click', () => {
+  document.getElementById('info-modal').classList.add('show');
+});
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('info-modal').classList.remove('show');
+});
+document.getElementById('info-modal').addEventListener('click', e => {
+  if (e.target.id === 'info-modal') {
+    document.getElementById('info-modal').classList.remove('show');
+  }
+});
 </script>
 </body>
 </html>
