@@ -2,7 +2,7 @@
   "name": "CarbuLoc",
   "short_name": "CarbuLoc",
   "description": "Prix des carburants en France - Trouvez les stations les moins chères",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#1a1f2e",
   "theme_color": "#3df0a0",
